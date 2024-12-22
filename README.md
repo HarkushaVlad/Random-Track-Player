@@ -1,4 +1,4 @@
-# Random MP3 Player with Server Control
+ # Random MP3 Player with Server Control
 
 Python-based random MP3 player server that supports basic playback control (play/pause, next, previous) and sends desktop notifications about the current track. The server communicates using TCP commands, and it can be controlled using simple command-line utilities like `nc` (Netcat).
 
@@ -110,7 +110,11 @@ nohup ./start_random_track_server.sh > server.log 2>&1 &
 
 ## Integration with Kando
 
-For a graphical menu interface, you can use [Kando](https://github.com/kando-menu/kando)
+For a graphical menu interface, you can use [Kando](https://github.com/kando-menu/kando)  
+
+![photo_2024-12-22_17-22-08](https://github.com/user-attachments/assets/8e2cf4c5-937e-430f-987e-2f0e851e49e9)
+
+Simply add the commands provided above to a Kando menu for easy access and control. This will allow you to manage playback directly from a graphical interface.
 
 ## Troubleshooting
 
