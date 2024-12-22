@@ -27,10 +27,10 @@ Run the following commands to install the necessary tools on Arch-based systems:
 
 ```bash
 sudo pacman -Syu
-sudo pacman -S python python-pip gnu-netcat libnotify python-pygame
+sudo pacman -S python python-pygame gnu-netcat libnotify
 ```
 
-For other distributions, install the equivalents for `Python`, `netcat`, `libnotify`, `python-pygame` and `nohup`.
+For other distributions, install the equivalents for `Python`, `python-pygame`, `libnotify` and `netcat`.
 
 ## Setup
 
