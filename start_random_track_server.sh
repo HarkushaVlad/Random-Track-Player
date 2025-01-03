@@ -32,6 +32,13 @@ if [ -n "$PROCESS_ID" ]; then
     send_notification "Random Track Server" "Failed to stop the server. Try again later."
     exit 1
   fi
+
+  PORT_USAGE=$(lsof -i tcp:$PORT | grep LISTEN | awk '{print $2}')
+  if [ -n "$PORT_USAGE" ]; then
+  echo "Port $PORT is in use. Terminating processes using this port..."
+  kill -9 $PORT_USAGE
+  sleep 2
+  fi
   
   send_notification "Random Track Server" "Server stopped successfully."
 else
