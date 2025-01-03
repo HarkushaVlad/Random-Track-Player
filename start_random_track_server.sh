@@ -6,11 +6,14 @@ send_notification() {
   notify-send "$title" "$message"
 }
 
-if [ -f .env ]; then
-    source .env
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+ENV_FILE="$SCRIPT_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
 else
-    echo ".env file not found!"
-    send_notification ".env file not found!"
+    echo ".env file not found at $ENV_FILE"
+    notify-send ".env file not found" "Make sure the .env file exists in $SCRIPT_DIR"
     exit 1
 fi
 
