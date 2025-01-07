@@ -4,10 +4,11 @@ Python-based random MP3 player server that supports basic playback control (play
 
 ## Features
 
-- Play random MP3 files from a specified folder.
+- Play random audio files from a specified folder.
 - Pause, resume, skip to the next track, or return to the previous track.
 - Send desktop notifications with the current track title.
 - Runs as a background server process for continuous playback control.
+- Automatically clears the log file if it exceeds a certain size.
 
 ## Requirements
 
@@ -15,7 +16,8 @@ Python-based random MP3 player server that supports basic playback control (play
 
 Ensure the following tools are installed on your Linux system:
 
-- **Python 3.12+** with the `pygame` library (`pip install pygame`).
+- **Python** with the `python-vlc` library (`pip install python-vlc`).
+- **VLC** for media playback.
 - **Netcat (nc)** for sending TCP commands to the server.
 - **`nohup`** for running the server in the background.
 - **`notify-send`** for desktop notifications.
@@ -27,10 +29,20 @@ Run the following commands to install the necessary tools on Arch-based systems:
 
 ```bash
 sudo pacman -Syu
-sudo pacman -S python python-pygame gnu-netcat libnotify
+sudo pacman -S python vlc gnu-netcat libnotify
 ```
 
-For other distributions, install the equivalents for `Python`, `python-pygame`, `libnotify` and `netcat`.
+Additionally, install `python-vlc` via the Arch User Repositories (AUR):
+
+```bash
+yay -S python-vlc
+```
+
+Alternatively, you can use other AUR helpers like paru or trizen.
+
+> It's better to install python-vlc via the AUR for better system integration. The AUR version is optimized for VLC on Arch, while the pip version may require extra configuration and may not work as seamlessly.
+
+For other distributions, install the equivalents for `Python`, `python-vlc`, `vlc`, `libnotify`, and `netcat`.
 
 ## Setup
 
@@ -42,14 +54,18 @@ For other distributions, install the equivalents for `Python`, `python-pygame`, 
    ```
 
 2. **Prepare `.env` File**:
+
    Create a `.env` file with the following variables:
 
    ```env
    SCRIPT_PATH=/path/to/random_track_server.py
    FOLDER_PATH=/path/to/your/mp3/folder
+   LOG_PATH=/path/to/server.log
    ```
 
-   Replace `/path/to/random_track_server.py` with the full path to the `random_track_server.py` file, and `/path/to/your/mp3/folder` with the directory containing your MP3 files.
+   - Replace `/path/to/random_track_server.py` with the full path to the `random_track_server.py` file.
+   - Replace `/path/to/your/mp3/folder` with the directory containing your MP3 files.
+   - Replace `/path/to/server.log` with the path where you want the server logs to be saved.
 
 3. **Run the Shell Script**:
    Use the provided shell script to manage the server:
@@ -91,27 +107,14 @@ Use `nc` to send commands to the server:
   ```
 
 - **Stop Playback**:
+
   ```bash
   echo "stop" | nc 127.0.0.1 65432
   ```
 
-## Running the Server in the Background
-
-To start the server as a background process, use:
-
-```bash
-nohup ./start_random_track_server.sh > server.log 2>&1 &
-```
-
-- `nohup`: Ensures the process keeps running even after you log out.
-- `./start_random_track_server.sh`: The script that manages the server.
-- `>`: Redirects standard output to a file (`server.log`).
-- `2>&1`: Combines standard error with standard output.
-- `&`: Runs the command in the background.
-
 ## Integration with Kando
 
-For a graphical menu interface, you can use [Kando](https://github.com/kando-menu/kando)
+For a graphical menu interface, you can use [Kando](https://github.com/kando-menu/kando).
 
 ![photo_2024-12-22_17-22-08](https://github.com/user-attachments/assets/8e2cf4c5-937e-430f-987e-2f0e851e49e9)
 
@@ -129,3 +132,17 @@ kill -9 <PID>
 ```
 
 Replace `<PID>` with the process ID returned by the `lsof` command.
+
+### Log File Too Large
+
+If the log file becomes too large, the server will automatically clear it before starting new logs. You can also manually clear the log file by running:
+
+```bash
+> /path/to/server.log
+```
+
+This will truncate the log file to zero bytes without deleting it.
+
+---
+
+Feel free to modify and expand the script as needed for your use case!

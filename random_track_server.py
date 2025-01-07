@@ -1,55 +1,103 @@
 import os
 import random
-import pygame
 import sys
 import socket
 import threading
 import subprocess
+import urllib.parse
+import vlc
+import logging
 
-pygame.mixer.init()
-current_file = None
-paused = False
-firstLaunch = True
-mp3_files = []
-current_index = -1
 HOST = "127.0.0.1"
 PORT = 65432
+paused = False
+player = vlc.MediaListPlayer()
+media_list = None
 
 
-def initialize_folder(folder_path):
+def initialize_playlist(folder_path):
     """
-    Initialize the MP3 folder and load file list.
+    Initialize the playlist by adding all supported audio files in the folder in random order.
     """
-    global mp3_files
-    if not os.path.exists(folder_path):
-        print(f"Folder not found: {folder_path}")
+    global media_list
+    instance = vlc.Instance()
+    media_list = instance.media_list_new()
+
+    supported_formats = (".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a")
+
+    files = [
+        os.path.join(folder_path, f)
+        for f in os.listdir(folder_path)
+        if f.lower().endswith(supported_formats)
+    ]
+
+    if not files:
+        logging.error("No supported audio files found in the specified folder.")
         return False
 
-    mp3_files = [file for file in os.listdir(folder_path) if file.endswith(".mp3")]
-    if not mp3_files:
-        print("No MP3 files found in the specified folder.")
-        return False
+    random.shuffle(files)
+    for file in files:
+        media_list.add_media(instance.media_new(file))
+
+    player.set_media_list(media_list)
+    logging.info("Playlist initialized.")
     return True
 
 
-def play_track(index, folder_path):
+def play_or_toggle():
     """
-    Play a track based on the index.
+    Play or toggle pause/resume of the current track.
     """
-    global current_file, paused, current_index
-    if not mp3_files:
-        if not initialize_folder(folder_path):
-            return
+    global paused
+    if player.is_playing():
+        player.pause()
+        paused = True
+        logging.info("Paused.")
+    else:
+        player.play()
+        paused = False
+        logging.info(f"Playing: {get_current_track_name()}")
 
-    pygame.mixer.music.stop()
 
-    current_index = index
-    current_file = os.path.join(folder_path, mp3_files[current_index])
+def next_track():
+    """
+    Skip to the next track in the playlist.
+    """
+    if media_list:
+        if player.next() == 0:
+            logging.info(f"Playing next track: {get_current_track_name()}")
+        else:
+            logging.error("Next track not found or at the end of the playlist.")
+            send_notification(
+                "Next track", "Next track not found or at the end of the playlist."
+            )
+    else:
+        logging.error("Playlist is empty.")
 
-    pygame.mixer.music.load(current_file)
-    pygame.mixer.music.play()
-    paused = False
-    print(f"Now playing: {mp3_files[current_index].replace('.mp3', '')}")
+
+def previous_track():
+    """
+    Go to the previous track in the playlist.
+    """
+    if media_list:
+        if player.previous() == 0:
+            logging.info(f"Playing previous track: {get_current_track_name()}")
+        else:
+            logging.error("Previous track not found or at the start of the playlist.")
+            send_notification(
+                "Previous track",
+                "Previous track not found or at the start of the playlist.",
+            )
+    else:
+        logging.error("Playlist is empty.")
+
+
+def stop():
+    """
+    Stop playback completely.
+    """
+    player.stop()
+    logging.info("Playback stopped.")
 
 
 def send_notification(title, message):
@@ -59,79 +107,30 @@ def send_notification(title, message):
     subprocess.run(["notify-send", title, message])
 
 
+def get_current_track_name():
+    current_media = player.get_media_player().get_media()
+    if current_media:
+        track_name = urllib.parse.unquote(current_media.get_mrl())
+        track_name = os.path.splitext(os.path.basename(track_name))[0]
+        return track_name
+    else:
+        return None
+
+
 def send_current_track_notification():
     """
     Send a notification with the current track name.
     """
-    if current_file:
-        track_name = os.path.basename(current_file).replace(".mp3", "")
+    track_name = get_current_track_name()
+    if track_name:
         send_notification("Now Playing", track_name)
+        logging.info(f"Now Playing: {track_name}")
     else:
         send_notification("Now Playing", "No track is currently playing.")
+        logging.info("Now Playing: No track is currently playing.")
 
 
-def play_or_toggle(folder_path):
-    """
-    Play a random MP3 file if none is playing, or toggle pause/resume if a track is already playing.
-    """
-    global paused, current_index, firstLaunch
-
-    if firstLaunch:
-        play_random(folder_path)
-        firstLaunch = False
-    else:
-        if paused:
-            pygame.mixer.music.unpause()
-            paused = False
-            print("Resumed.")
-        else:
-            pygame.mixer.music.pause()
-            paused = True
-            print("Paused.")
-
-
-def play_random(folder_path):
-    """
-    Play a random MP3 file from the folder.
-    """
-    index = random.randint(0, len(mp3_files) - 1)
-    play_track(index, folder_path)
-
-
-def next(folder_path):
-    """
-    Skip the current track and play the next one.
-    """
-    global current_index
-    if pygame.mixer.music.get_busy():
-        pygame.mixer.music.stop()
-
-    # Play next track in the list
-    current_index = (current_index + 1) % len(mp3_files)
-    play_track(current_index, folder_path)
-
-
-def previous(folder_path):
-    """
-    Go to the previous track in the playlist.
-    """
-    global current_index
-    if pygame.mixer.music.get_busy():
-        pygame.mixer.music.stop()
-
-    current_index = (current_index - 1) % len(mp3_files)
-    play_track(current_index, folder_path)
-
-
-def stop():
-    """
-    Stop playback completely.
-    """
-    pygame.mixer.music.stop()
-    print("Playback stopped.")
-
-
-def handle_client(client_socket, folder_path):
+def handle_client(client_socket):
     """
     Handle incoming commands from a client.
     """
@@ -142,24 +141,25 @@ def handle_client(client_socket, folder_path):
             if not data:
                 break
 
-            print(f"Command received: {data}")
+            logging.info(f"Command received: {data}")
             if data == "play":
-                play_or_toggle(folder_path)
+                play_or_toggle()
             elif data == "pause":
-                play_or_toggle(folder_path)
+                play_or_toggle()
             elif data == "next":
-                next(folder_path)
+                next_track()
             elif data == "prev":
-                previous(folder_path)
+                previous_track()
             elif data == "stop":
                 stop()
             elif data == "title":
                 send_current_track_notification()
             elif data == "exit":
+                logging.info("Exit command received. Stopping the server...")
                 stop()
                 break
             else:
-                print("Unknown command.")
+                logging.error("Unknown command.")
     finally:
         client_socket.close()
 
@@ -172,31 +172,49 @@ def start_server(folder_path):
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((HOST, PORT))
         server.listen(1)
-        print(f"Server listening on {HOST}:{PORT}")
+        logging.info(f"Server listening on {HOST}:{PORT}")
 
         while True:
-            client_socket, addr = server.accept()
-            print(f"Connection from {addr}")
-            client_thread = threading.Thread(
-                target=handle_client, args=(client_socket, folder_path)
-            )
-            client_thread.start()
+            try:
+                client_socket, addr = server.accept()
+                logging.info(f"Connection from {addr}")
+                client_thread = threading.Thread(
+                    target=handle_client, args=(client_socket,)
+                )
+                client_thread.start()
+            except KeyboardInterrupt:
+                logging.info("Server interrupted. Shutting down...")
+                break
+            except Exception as e:
+                logging.error(f"Error while handling client connection: {e}")
+                break
+
+    logging.info("Server has stopped.")
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python script_name.py <folder_path>")
+        logging.error("Usage: python script_name.py <folder_path>")
         sys.exit(1)
 
     folder_path = sys.argv[1]
+    log_path = sys.argv[2] if len(sys.argv) > 2 else "./server.log"
 
-    if not initialize_folder(folder_path):
+    logging.basicConfig(
+        filename=log_path,
+        level=logging.DEBUG,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        filemode="a",
+    )
+
+    if not os.path.exists(folder_path) or not initialize_playlist(folder_path):
         sys.exit(1)
 
-    # Start the server
-    try:
-        start_server(folder_path)
-    except KeyboardInterrupt:
-        print("\nServer shutting down.")
-        stop()
-        sys.exit(0)
+    server_thread = threading.Thread(target=start_server, args=(folder_path,))
+    server_thread.daemon = True
+    server_thread.start()
+
+    logging.info("Server running. Use a client to send commands.")
+    while True:
+        pass
