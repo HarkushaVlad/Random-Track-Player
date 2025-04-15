@@ -145,4 +145,7 @@ This will truncate the log file to zero bytes without deleting it.
 
 ---
 
-Feel free to modify and expand the script as needed for your use case!
+## License
+
+This project is licensed under the MIT License. See
+the [LICENSE](https://github.com/HarkushaVlad/Random-Track-Player/blob/main/LICENSE) file for details.
